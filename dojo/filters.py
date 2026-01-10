@@ -1557,6 +1557,7 @@ class ApiFindingFilter(DojoFilter):
     under_review = BooleanFilter(field_name="under_review")
     verified = BooleanFilter(field_name="verified")
     has_jira = BooleanFilter(field_name="jira_issue", lookup_expr="isnull", exclude=True)
+    has_endpoints = BooleanFilter(field_name="endpoints", lookup_expr="isnull", exclude=True)
     fix_available = BooleanFilter(field_name="fix_available")
     # CharFilter
     component_version = CharFilter(lookup_expr="icontains")
