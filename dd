@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dd: wrapper versionado do seu kit de aliases para DefectDojo (modo dev)
+# Uso: ./dd help
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# Compose V2 vs V1
+compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    echo "docker compose"
+  else
+    echo "docker-compose"
+  fi
+}
+
+# Arquivos compose (replicando seu ddc)
+COMPOSE_FILES=(
+  "$ROOT/docker-compose.yml"
+  "$ROOT/docker-compose.override.dev.yml"
+  "$ROOT/docker-compose.override.pg5433.yml"
+  "$ROOT/docker-compose.override.initializer-root.yml"
+)
+
+compose() {
+  local cmd
+  cmd="$(compose_cmd)"
+  local args=()
+  for f in "${COMPOSE_FILES[@]}"; do
+    if [[ -f "$f" ]]; then
+      args+=(-f "$f")
+    else
+      echo "ERRO: compose file não encontrado: $f" >&2
+      exit 1
+    fi
+  done
+  # shellcheck disable=SC2086
+  $cmd "${args[@]}" "$@"
+}
+
+help() {
+  cat <<'HELP'
+DefectDojo - comandos (wrapper versionado)
+Uso: ./dd <comando> [args]
+
+Docker (compose dev):
+  up                 -> sobe stack (up -d --build)
+  down               -> desce stack (mantém volumes/dados)
+  ps                 -> status dos containers
+  services           -> lista serviços do compose
+  logs [svc]         -> logs (default: tudo). Ex: ./dd logs nginx
+  sh [svc]           -> shell no container (default: uwsgi)
+  exec <svc> <cmd..> -> executa comando em um service (ex: ./dd exec nginx nginx -t)
+  admin-pass         -> tenta obter senha do admin (initializer) ou mostra padrão dev
+
+Django (dentro do container uwsgi):
+  manage <cmd..>        -> python manage.py <cmd..>
+  migrate               -> migrations
+  makemigrations [app]  -> cria migrations
+  createsuperuser       -> cria superuser
+  collectstatic         -> collectstatic
+
+HELP
+}
+
+# Helpers
+default_shell() {
+  local svc="$1"
+  # tenta bash, se não tiver cai pro sh
+  if compose exec -T "$svc" bash -lc 'exit 0' >/dev/null 2>&1; then
+    echo "bash"
+  else
+    echo "sh"
+  fi
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  help|-h|--help) help ;;
+
+  up) compose up -d --build "$@" ;;
+  down) compose down "$@" ;;
+  ps) compose ps "$@" ;;
+  services) compose config --services ;;
+  logs)
+    if [[ $# -ge 1 ]]; then
+      compose logs -f --tail=200 "$1"
+    else
+      compose logs -f --tail=200
+    fi
+    ;;
+  sh)
+    svc="${1:-uwsgi}"
+    shell="$(default_shell "$svc")"
+    if [[ "$shell" == "bash" ]]; then
+      compose exec "$svc" bash
+    else
+      compose exec "$svc" sh
+    fi
+    ;;
+  exec)
+    if [[ $# -lt 2 ]]; then
+      echo "Uso: ./dd exec <svc> <cmd...>" >&2
+      exit 2
+    fi
+    svc="$1"; shift
+    compose exec "$svc" "$@"
+    ;;
+  admin-pass)
+    # Em dev, normalmente é admin/admin (via env no override.dev.yml),
+    # mas tentamos ler do initializer também.
+    if compose logs initializer 2>/dev/null | grep -m1 "Admin password:" >/dev/null 2>&1; then
+      compose logs initializer 2>/dev/null | grep -m1 "Admin password:"
+    else
+      echo "Dev default (override.dev.yml): DD_ADMIN_USER=admin / DD_ADMIN_PASSWORD=admin"
+      echo "Se precisar confirmar via logs: ./dd logs initializer | grep \"Admin password:\""
+    fi
+    ;;
+
+  manage) compose exec uwsgi python manage.py "$@" ;;
+  migrate) compose exec uwsgi python manage.py migrate "$@" ;;
+  makemigrations) compose exec uwsgi python manage.py makemigrations "$@" ;;
+  createsuperuser) compose exec uwsgi python manage.py createsuperuser "$@" ;;
+  collectstatic) compose exec uwsgi python manage.py collectstatic --noinput "$@" ;;
+
+  *)
+    echo "Comando desconhecido: $cmd" >&2
+    echo "Dica: ./dd help" >&2
+    exit 2
+    ;;
+esac
