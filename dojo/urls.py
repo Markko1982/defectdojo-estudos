@@ -8,6 +8,8 @@ from django.urls import re_path
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken import views as tokenviews
 from rest_framework.routers import DefaultRouter
+from dojo.health import healthz
+
 
 from dojo import views
 from dojo.announcement.urls import urlpatterns as announcement_urls
@@ -244,6 +246,12 @@ if hasattr(settings, "PRELOAD_URL_PATTERNS"):
 
 urlpatterns += [
     # action history
+    re_path(
+    r"^{}healthz/?$".format(get_system_setting("url_prefix")),
+    healthz,
+    name="healthz",
+),
+
     re_path(r"^{}history/(?P<cid>\d+)/(?P<oid>\d+)$".format(get_system_setting("url_prefix")), views.action_history, name="action_history"),
     re_path(r"^{}".format(get_system_setting("url_prefix")), include(ur)),
 
