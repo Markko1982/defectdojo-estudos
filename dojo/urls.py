@@ -8,7 +8,8 @@ from django.urls import re_path
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken import views as tokenviews
 from rest_framework.routers import DefaultRouter
-from dojo.health import healthz
+from dojo.health import healthz, ping
+
 
 
 from dojo import views
@@ -251,6 +252,13 @@ urlpatterns += [
     healthz,
     name="healthz",
 ),
+    re_path(
+    r"^{}ping/?$".format(get_system_setting("url_prefix")),
+    ping,
+    name="ping",
+),
+
+
 
     re_path(r"^{}history/(?P<cid>\d+)/(?P<oid>\d+)$".format(get_system_setting("url_prefix")), views.action_history, name="action_history"),
     re_path(r"^{}".format(get_system_setting("url_prefix")), include(ur)),

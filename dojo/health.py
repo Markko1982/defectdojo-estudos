@@ -13,3 +13,9 @@ def healthz(request):
         return JsonResponse({"status": "degraded", "reason": "db"}, status=503)
 
     return JsonResponse({"status": "ok"}, status=200)
+
+@require_GET
+def ping(request):
+    # Endpoint simples para checar se o serviço está respondendo (sem depender do DB).
+    return JsonResponse({"status": "ok"}, status=200)
+

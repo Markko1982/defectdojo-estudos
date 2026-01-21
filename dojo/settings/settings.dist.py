@@ -727,6 +727,7 @@ LOGIN_EXEMPT_URLS = (
     rf"^{URL_PREFIX}finding/image/(?P<token>[^/]+)$",
     rf"^{URL_PREFIX}api/v2/",
     rf"^{URL_PREFIX}healthz/?$",
+    rf"^{URL_PREFIX}ping/?$",
     r"complete/",
     r"empty_questionnaire/([\d]+)/answer",
     r"oauth2/idpresponse",
